@@ -25,7 +25,7 @@
 | 隐藏作品简介 | `DisableSummary` | 关 | 后端清空简介字段 |
 | 启用演员兜底 (JavDB) | `EnableActorFallback` | 开 | 主源没演员时向 JavDB 查一次，查不到记 12 小时 |
 | FANZA 冷却间隔 | `FanzaRateLimit` | `0` | FANZA 两次请求的最小间隔 |
-| JavDB 冷却间隔 | `JavdbRateLimit` | `5s` | JavDB 两次请求的最小间隔 |
+| JavDB 冷却间隔 | `JavdbRateLimit` | `10s` | JavDB 两次请求的最小间隔 |
 
 **两个默认值调整**（只影响新装或重置配置时的初始值）：
 

@@ -31,7 +31,7 @@ public partial class PluginConfiguration
 
 #if __EMBY__
     [DisplayName("JavDB 冷却间隔")]
-    [Description("两次请求之间的最小间隔，例如 5s；填 0 表示不限制。")]
+    [Description("两次请求之间的最小间隔，例如 10s；填 0 表示不限制。")]
 #endif
-    public string JavdbRateLimit { get; set; } = "5s";
+    public string JavdbRateLimit { get; set; } = "10s";
 }
