@@ -12,11 +12,11 @@ using MediaBrowser.Model.Plugins;
 namespace Jellyfin.Plugin.MetaTube.Configuration;
 
 #if __EMBY__
-public class PluginConfiguration : EditableOptionsBase
+public partial class PluginConfiguration : EditableOptionsBase
 {
     public override string EditorTitle => Plugin.ProviderName;
 #else
-public class PluginConfiguration : BasePluginConfiguration
+public partial class PluginConfiguration : BasePluginConfiguration
 {
 #endif
 
@@ -140,15 +140,17 @@ public class PluginConfiguration : BasePluginConfiguration
 
     public static string DefaultTaglineTemplate => "配信開始日 {date}";
 
+    // metatube-plus: the backend no longer translates titles or summaries, so the
+    // plugin owns that work; the free engine works without credentials.
 #if __EMBY__
     [DisplayName("Translation mode")]
 #endif
-    public TranslationMode TranslationMode { get; set; } = TranslationMode.Disabled;
+    public TranslationMode TranslationMode { get; set; } = TranslationMode.Both;
 
 #if __EMBY__
     [DisplayName("Translation engine")]
 #endif
-    public TranslationEngine TranslationEngine { get; set; } = TranslationEngine.Baidu;
+    public TranslationEngine TranslationEngine { get; set; } = TranslationEngine.GoogleFree;
 
 #if __EMBY__
     [DisplayName("Baidu app id")]
