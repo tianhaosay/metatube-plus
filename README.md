@@ -18,21 +18,29 @@
 
 ## 本定制版改了什么
 
-**设置页多出 4 项**（仅 Emby 构建显示，值写进同一份 `MetaTube.json`，由后端读取执行）：
+**设置页多出 5 项**（仅 Emby 构建显示，值写进同一份 `MetaTube.json`）：
 
-| 设置项 | 字段 | 默认 | 作用 |
+| 设置项 | 字段 | 默认 | 谁在用 / 作用 |
 |---|---|---|---|
-| 隐藏作品简介 | `DisableSummary` | 关 | 后端清空简介字段 |
-| 启用演员兜底 (JavDB) | `EnableActorFallback` | 开 | 主源没演员时向 JavDB 查一次，查不到记 12 小时 |
-| FANZA 冷却间隔 | `FanzaRateLimit` | `0` | FANZA 两次请求的最小间隔 |
-| JavDB 冷却间隔 | `JavdbRateLimit` | `10s` | JavDB 两次请求的最小间隔 |
+| 隐藏作品简介 | `DisableSummary` | 关 | 后端：清空简介字段 |
+| 启用演员兜底 (JavDB) | `EnableActorFallback` | 开 | 后端：主源没演员时向 JavDB 查一次，查不到记 12 小时 |
+| FANZA 冷却间隔 | `FanzaRateLimit` | `0` | 后端：FANZA 两次请求的最小间隔 |
+| JavDB 冷却间隔 | `JavdbRateLimit` | `10s` | 后端：JavDB 两次请求的最小间隔 |
+| 自动添加无码破解标签 | `EnableUncensoredBadge` | 开 | 插件自己：Organize Metadata 每天运行时，给 `-LTX` / `-U` / `-UC` 的影片加「无码破解」类型 |
+
+**Organize Metadata 任务增强**（Emby → 计划任务，默认每天 03:00）：
+
+- 除原有的「中文字幕」类型与字幕角标外，还会按文件名**对称增删**「无码破解」类型——文件改名、后缀没了，标签也会自动摘掉；
+- **只改类型，不动角标**：字幕角标仍只归「中文字幕」逻辑管，无码破解片不会被错贴角标；
+- `-UC` 会同时挂「中文字幕」和「无码破解」两个类型（沿用上游判定，保持双标签）；
+- 后端的控制台手动按钮与接口已删除，这个类型现在**只有一处**负责。
 
 **两个默认值调整**（只影响新装或重置配置时的初始值）：
 
 - `TranslationMode`：`Disabled` → `Both`（后端不再翻标题/简介，插件必须自己翻）
 - `TranslationEngine`：`Baidu` → `GoogleFree`（免密钥即可用）
 
-除此之外没有改动抓取、解析、命名、图片、数据库等任何逻辑。
+抓取、解析、命名、图片、数据库等逻辑与上游一致。
 
 ## 安装（Emby）
 
