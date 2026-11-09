@@ -113,6 +113,29 @@ public class OrganizeMetadataTask : IScheduledTask
                 _logger.Error("Update ChineseSubtitle for video {0}: {1}", item.Name, e.Message);
             }
 
+            // Keep the uncensored genre in sync with the file name, following the
+            // Organize Metadata task. Only the genre changes; subtitle badges are
+            // owned by the ChineseSubtitle branch above and are never touched here.
+            if (Plugin.Instance.Configuration.EnableUncensoredBadge)
+            {
+                try
+                {
+                    switch (IsUncensoredRelease(item.Path ?? string.Empty))
+                    {
+                        case true when !genres.Contains(Uncensored):
+                            genres.Add(Uncensored);
+                            break;
+                        case false when genres.Contains(Uncensored):
+                            genres.RemoveAll(s => s.Equals(Uncensored));
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    _logger.Error("Update Uncensored for video {0}: {1}", item.Name, e.Message);
+                }
+            }
+
             // Remove duplicates.
             var orderedGenres =
                 (Plugin.Instance.Configuration.EnableGenreSubstitution
@@ -144,6 +167,11 @@ public class OrganizeMetadataTask : IScheduledTask
     #region Helper
 
     private const string ChineseSubtitle = "中文字幕";
+
+    private const string Uncensored = "无码破解";
+
+    private static readonly Regex UncensoredSuffixRe = new(
+        @"(?i)-(ltx|uc|u)([-_.]|$)", RegexOptions.Compiled);
 
     private static bool HasTag(string filename, string tag)
     {
@@ -177,6 +205,15 @@ public class OrganizeMetadataTask : IScheduledTask
         return files.Any(name => r.IsMatch(name) &&
                                  r.Replace(name, string.Empty)
                                      .Equals(basename, StringComparison.OrdinalIgnoreCase));
+    }
+
+    // Mirror of metatube-plus's uncensored-badge rule: the suffix must be
+    // followed by a separator or the end of the file name. RE2 has no
+    // lookahead, so the separator is captured by the expression.
+    private static bool IsUncensoredRelease(string path)
+    {
+        var name = Path.GetFileNameWithoutExtension(path);
+        return !string.IsNullOrWhiteSpace(name) && UncensoredSuffixRe.IsMatch(name);
     }
 
     private static async Task SetPrimaryImage(BaseItem item, string badge, CancellationToken cancellationToken)

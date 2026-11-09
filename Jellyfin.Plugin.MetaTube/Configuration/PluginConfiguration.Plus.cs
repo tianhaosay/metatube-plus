@@ -6,9 +6,8 @@ using MediaBrowser.Model.Attributes;
 
 namespace Jellyfin.Plugin.MetaTube.Configuration;
 
-// Switches that the metatube-plus backend reads from the same MetaTube.json.
-// The plugin settings page is the only place to change them; the operator console
-// mirrors the values read-only. Field names match the backend JSON keys.
+// Switches used by the plugin itself or mirrored by the metatube-plus backend.
+// Field names match the backend's MetaTube.json keys.
 public partial class PluginConfiguration
 {
 #if __EMBY__
@@ -34,4 +33,10 @@ public partial class PluginConfiguration
     [Description("两次请求之间的最小间隔，例如 10s；填 0 表示不限制。")]
 #endif
     public string JavdbRateLimit { get; set; } = "10s";
+
+#if __EMBY__
+    [DisplayName("自动添加无码破解标签")]
+    [Description("Organize Metadata 每天运行时，给文件名带 -LTX / -U / -UC 的影片加「无码破解」类型；文件改名后自动摘除。不影响中文字幕角标。")]
+#endif
+    public bool EnableUncensoredBadge { get; set; } = true;
 }
