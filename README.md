@@ -10,7 +10,7 @@
 
 | 部件 | 仓库 | 负责什么 |
 |---|---|---|
-| 插件（本仓库） | `tianhaosay/metatube-plus` | 取数通道、标题/简介翻译、设置页 |
+| 插件（本仓库） | `tianhaosay/metatube-plus` | 取数通道、标题/简介翻译、设置页、类型与角标整理 |
 | 后端 | [`tianhaosay/metatube-sdk-go`](https://github.com/tianhaosay/metatube-sdk-go) | 演员/流派中文化、简介处理、库体检、批量修复、控制台 `/ui` |
 
 后端 + 本定制插件是**推荐组合**：后端要读的 4 个运行开关直接出现在插件设置页里，改完约 15 秒生效，不用碰配置文件。
@@ -30,10 +30,10 @@
 
 **Organize Metadata 任务增强**（Emby → 计划任务，默认每天 03:00）：
 
-- 除原有的「中文字幕」类型与字幕角标外，还会按文件名**对称增删**「无码破解」类型——文件改名、后缀没了，标签也会自动摘掉；
-- **只改类型，不动角标**：字幕角标仍只归「中文字幕」逻辑管，无码破解片不会被错贴角标；
-- `-UC` 会同时挂「中文字幕」和「无码破解」两个类型（沿用上游判定，保持双标签）；
-- 后端的控制台手动按钮与接口已删除，这个类型现在**只有一处**负责。
+- 按文件名（`-LTX` / `-U` / `-UC`）**对称增删**「无码破解」类型，只改类型、不动字幕角标；
+- 按文件名（`-C` / `-UC` / `ch` /「中文字幕」字样）或同目录外挂字幕文件判定「中文字幕」状态，**每次都核对**标签与角标：有字幕就加标签并贴角标，外挂字幕被删/不存在就一并移除；
+- 角标由后端图片接口按 `badge` 参数绘制，主图统一指向 `/v1/images/primary/...?badge=zimu.png`。原本使用本地 `poster.jpg` 的片会被替换为带角标的后端封面；没有 MetaTube 番号的片保留原图不动；
+- 这修好了上游「只在标签从无变有时贴一次角标」的缺陷（实测 828 部「有标签无角标」一次任务全部补齐）。
 
 **两个默认值调整**（只影响新装或重置配置时的初始值）：
 
@@ -71,8 +71,8 @@ git fetch upstream
 git merge upstream/main
 ```
 
-定制部分集中在 `Jellyfin.Plugin.MetaTube/Configuration/PluginConfiguration.Plus.cs`，上游改
-`PluginConfiguration.cs` 时冲突面很小；合并后记得重新编译并把 DLL 换到 Emby 再重启。
+定制部分集中在 `Jellyfin.Plugin.MetaTube/Configuration/PluginConfiguration.Plus.cs` 与
+`Jellyfin.Plugin.MetaTube/ScheduledTasks/OrganizeMetadataTask.cs`，上游改动时冲突面较小；合并后记得重新编译并把 DLL 换到 Emby 再重启。
 
 ## 上游文档
 
