@@ -84,38 +84,21 @@ public class OrganizeMetadataTask : IScheduledTask
             progress?.Report((double)idx / items.Count * 100);
 
             var genres = item.Genres?.ToList() ?? new List<string>();
+            var originalGenres = item.Genres?.ToList() ?? new List<string>();
 
-            try
-            {
-                switch (HasEmbeddedChineseSubtitle(item.FileNameWithoutExtension) ||
-                        HasExternalChineseSubtitle(item.Path))
-                {
-                    // Add `ChineseSubtitle` genre.
-                    case true when !genres.Contains(ChineseSubtitle):
-                    {
-                        genres.Add(ChineseSubtitle);
-                        if (Plugin.Instance.Configuration.EnableBadges)
-                            await SetPrimaryImage(item, Plugin.Instance.Configuration.BadgeUrl, cancellationToken);
-                        break;
-                    }
-                    // Remove `ChineseSubtitle` genre.
-                    case false when genres.Contains(ChineseSubtitle):
-                    {
-                        genres.RemoveAll(s => s.Equals(ChineseSubtitle));
-                        if (Plugin.Instance.Configuration.EnableBadges)
-                            await SetPrimaryImage(item, string.Empty, cancellationToken);
-                        break;
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                _logger.Error("Update ChineseSubtitle for video {0}: {1}", item.Name, e.Message);
-            }
+            // Subtitle state is derived from the file name and sidecar subtitle
+            // files on every run. The genre and the badge both follow it, so a
+            // deleted sidecar removes both.
+            var hasSubtitle = HasEmbeddedChineseSubtitle(item.FileNameWithoutExtension) ||
+                              HasExternalChineseSubtitle(item.Path);
 
-            // Keep the uncensored genre in sync with the file name, following the
-            // Organize Metadata task. Only the genre changes; subtitle badges are
-            // owned by the ChineseSubtitle branch above and are never touched here.
+            if (hasSubtitle && !genres.Contains(ChineseSubtitle))
+                genres.Add(ChineseSubtitle);
+            else if (!hasSubtitle && genres.Contains(ChineseSubtitle))
+                genres.RemoveAll(s => s.Equals(ChineseSubtitle));
+
+            // Keep the uncensored genre in sync with the file name. Only the genre
+            // changes; subtitle badges are owned by the logic below.
             if (Plugin.Instance.Configuration.EnableUncensoredBadge)
             {
                 try
@@ -139,16 +122,33 @@ public class OrganizeMetadataTask : IScheduledTask
             // Remove duplicates.
             var orderedGenres =
                 (Plugin.Instance.Configuration.EnableGenreSubstitution
-                    // Substitute genres.
                     ? Plugin.Instance.Configuration.GetGenreSubstitutionTable().Substitute(genres)
                     : genres).Distinct().OrderByString(genre => genre).ToList();
 
-            // Skip updating item if equal.
-            if (!orderedGenres.Any() ||
-                (item.Genres?.SequenceEqual(orderedGenres, StringComparer.OrdinalIgnoreCase)).GetValueOrDefault(false))
-                continue;
+            var genresChanged = !originalGenres.SequenceEqual(orderedGenres, StringComparer.OrdinalIgnoreCase);
 
-            item.Genres = orderedGenres.ToArray();
+            // Reconcile the subtitle badge on every run, not only when the genre
+            // flips. The badge is drawn by the backend image endpoint from the
+            // MetaTube id; items without one keep their existing artwork.
+            var imageChanged = false;
+            if (Plugin.Instance.Configuration.EnableBadges)
+            {
+                try
+                {
+                    imageChanged = SyncPrimaryImage(item, hasSubtitle);
+                }
+                catch (Exception e)
+                {
+                    _logger.Error("Update badge for video {0}: {1}", item.Name, e.Message);
+                }
+            }
+
+            // Persist when either the genres or the primary image changed.
+            if (genresChanged)
+                item.Genres = orderedGenres.ToArray();
+
+            if (!genresChanged && !imageChanged)
+                continue;
 
             _logger.Info("Organize metadata for video: {0}", item.Name);
 
@@ -172,6 +172,43 @@ public class OrganizeMetadataTask : IScheduledTask
 
     private static readonly Regex UncensoredSuffixRe = new(
         @"(?i)-(ltx|uc|u)([-_.]|$)", RegexOptions.Compiled);
+
+    // Ensure the primary image matches the subtitle state. Returns true when the
+    // stored image was replaced. The backend image endpoint draws the badge on
+    // top of the provider's primary image; a missing MetaTube id leaves the
+    // current artwork alone.
+    private static bool SyncPrimaryImage(BaseItem item, bool hasSubtitle)
+    {
+        var pid = item.GetPid(Plugin.ProviderId);
+        if (string.IsNullOrWhiteSpace(pid.Id) || string.IsNullOrWhiteSpace(pid.Provider))
+            return false;
+
+        var badge = hasSubtitle ? Plugin.Instance.Configuration.BadgeUrl : string.Empty;
+        var desired = ApiClient.GetPrimaryImageApiUrl(pid.Provider, pid.Id, pid.Position ?? -1, badge);
+        var current = CurrentPrimaryImagePath(item);
+
+        if (string.Equals(current, desired, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        item.SetImage(new ItemImageInfo { Path = desired, Type = ImageType.Primary }, 0);
+        return true;
+    }
+
+    // Read the current primary image path so an already-correct URL is not
+    // rewritten on every run. Older Emby builds may not expose GetImageInfo;
+    // in that case an empty path simply triggers a once-off rewrite.
+    private static string CurrentPrimaryImagePath(BaseItem item)
+    {
+        try
+        {
+            var info = item.GetImageInfo(ImageType.Primary, 0);
+            return info == null ? string.Empty : (info.Path ?? string.Empty);
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
 
     private static bool HasTag(string filename, string tag)
     {
@@ -200,6 +237,8 @@ public class OrganizeMetadataTask : IScheduledTask
 
     private static bool HasExternalChineseSubtitle(string basename, IEnumerable<string> files)
     {
+        if (files == null)
+            return false;
         var r = new Regex(@"\.(ch[ist]|zho?(-(cn|hk|sg|tw))?)\.(ass|srt|ssa|smi|sub|idx|psb|vtt)$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
         return files.Any(name => r.IsMatch(name) &&
@@ -214,21 +253,6 @@ public class OrganizeMetadataTask : IScheduledTask
     {
         var name = Path.GetFileNameWithoutExtension(path);
         return !string.IsNullOrWhiteSpace(name) && UncensoredSuffixRe.IsMatch(name);
-    }
-
-    private static async Task SetPrimaryImage(BaseItem item, string badge, CancellationToken cancellationToken)
-    {
-        var pid = item.GetPid(Plugin.ProviderId);
-        if (string.IsNullOrWhiteSpace(pid.Id) || string.IsNullOrWhiteSpace(pid.Provider))
-            return;
-
-        var m = await ApiClient.GetMovieInfoAsync(pid.Provider, pid.Id, cancellationToken);
-        // Set first primary image.
-        item.SetImage(new ItemImageInfo
-        {
-            Path = ApiClient.GetPrimaryImageApiUrl(m.Provider, m.Id, pid.Position ?? -1, badge),
-            Type = ImageType.Primary
-        }, 0);
     }
 
     #endregion
