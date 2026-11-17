@@ -32,7 +32,7 @@ services:
       - MT_GENRE_DICT=/data/mapping/genre_dict.json
 ```
 
-- 不写标签即 `latest`，也就是**当前最新版**（现为 `v1.0.0`）；
+- 不写标签即 `latest`，也就是**当前最新版**；
 - 要控制台（库体检 / 批量修复 / 日志），另加 `MT_MANAGE`、`MT_MANAGE_EMBY_URL`、`MT_MANAGE_EMBY_API_KEY` 三个变量，完整说明见[后端 README 的部署一节](https://github.com/tianhaosay/metatube-sdk-go#部署)；
 - 容器起来后，在本插件设置页把 `Server` 指向它，例如 `http://<host>:8080`。
 
