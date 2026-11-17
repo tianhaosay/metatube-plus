@@ -6,6 +6,36 @@
 > A customised build of the MetaTube plugin for Emby/Jellyfin, made to pair with the
 > [metatube-plus](https://github.com/tianhaosay/metatube-sdk-go) backend.
 
+## 先起后端（配套容器）
+
+本插件要配一个后端才能工作。后端已发布为公开镜像，**不需要登录、不需要自己构建**：
+
+```bash
+docker pull tianhaosay/metatube-plus
+```
+
+或者直接用 compose 起（最小可跑配置，只够刮削中文化）：
+
+```yaml
+services:
+  metatube:
+    image: tianhaosay/metatube-plus
+    container_name: metatube
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    volumes:
+      - ./mapping:/data/mapping
+    environment:
+      - MT_MAPPING_ACTOR_FILE=/data/mapping/mapping_actor.xml
+      - MT_MAPPING_INFO_FILE=/data/mapping/mapping_info.xml
+      - MT_GENRE_DICT=/data/mapping/genre_dict.json
+```
+
+- 不写标签即 `latest`，也就是**当前最新版**（现为 `v1.0.0`）；
+- 要控制台（库体检 / 批量修复 / 日志），另加 `MT_MANAGE`、`MT_MANAGE_EMBY_URL`、`MT_MANAGE_EMBY_API_KEY` 三个变量，完整说明见[后端 README 的部署一节](https://github.com/tianhaosay/metatube-sdk-go#部署)；
+- 容器起来后，在本插件设置页把 `Server` 指向它，例如 `http://<host>:8080`。
+
 ## 配套关系
 
 | 部件 | 仓库 | 负责什么 |
