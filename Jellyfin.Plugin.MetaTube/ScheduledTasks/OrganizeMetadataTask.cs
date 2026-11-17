@@ -113,6 +113,29 @@ public class OrganizeMetadataTask : IScheduledTask
                 _logger.Error("Update ChineseSubtitle for video {0}: {1}", item.Name, e.Message);
             }
 
+            // Keep the uncensored genre in sync with the file name. This genre is a
+            // metatube-plus addition (upstream has no such genre); only the genre is
+            // touched here, never the artwork.
+            if (Plugin.Instance.Configuration.EnableUncensoredBadge)
+            {
+                try
+                {
+                    switch (IsUncensoredRelease(item.Path ?? string.Empty))
+                    {
+                        case true when !genres.Contains(Uncensored):
+                            genres.Add(Uncensored);
+                            break;
+                        case false when genres.Contains(Uncensored):
+                            genres.RemoveAll(s => s.Equals(Uncensored));
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    _logger.Error("Update Uncensored for video {0}: {1}", item.Name, e.Message);
+                }
+            }
+
             // Remove duplicates.
             var orderedGenres =
                 (Plugin.Instance.Configuration.EnableGenreSubstitution
@@ -144,6 +167,13 @@ public class OrganizeMetadataTask : IScheduledTask
     #region Helper
 
     private const string ChineseSubtitle = "中文字幕";
+
+    // metatube-plus addition: the uncensored-release genre.
+    private const string Uncensored = "无码破解";
+
+    // Suffix must be followed by a separator, or end the name.
+    private static readonly Regex UncensoredSuffixRe = new(
+        @"(?i)-(ltx|uc|u)([-_.]|$)", RegexOptions.Compiled);
 
     private static bool HasTag(string filename, string tag)
     {
@@ -192,6 +222,13 @@ public class OrganizeMetadataTask : IScheduledTask
             Path = ApiClient.GetPrimaryImageApiUrl(m.Provider, m.Id, pid.Position ?? -1, badge),
             Type = ImageType.Primary
         }, 0);
+    }
+
+    // metatube-plus addition: does the file name carry a restore/uncensored marker?
+    private static bool IsUncensoredRelease(string path)
+    {
+        var name = Path.GetFileNameWithoutExtension(path);
+        return !string.IsNullOrWhiteSpace(name) && UncensoredSuffixRe.IsMatch(name);
     }
 
     #endregion
